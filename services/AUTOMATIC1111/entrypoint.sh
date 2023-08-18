@@ -19,6 +19,12 @@ if [ ! -f /data/config/auto/styles.csv ]; then
   touch /data/config/auto/styles.csv
 fi
 
+# copy models from original models folder
+mkdir -p /data/models/VAE-approx/ /data/models/karlo/
+
+rsync -a --info=NAME ${ROOT}/models/VAE-approx/ /data/models/VAE-approx/
+rsync -a --info=NAME ${ROOT}/models/karlo/ /data/models/karlo/
+
 declare -A MOUNTS
 
 MOUNTS["/root/.cache"]="/data/.cache"
@@ -65,8 +71,22 @@ for to_path in "${!MOUNTS[@]}"; do
   echo Mounted $(basename "${from_path}")
 done
 
+echo "Installing extension dependencies (if any)"
+
+# because we build our container as root:
+chown -R root ~/.cache/
+chmod 766 ~/.cache/
+
+shopt -s nullglob
+# For install.py, please refer to https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Developing-extensions#installpy
+list=(./extensions/*/install.py)
+for installscript in "${list[@]}"; do
+  PYTHONPATH=${ROOT} python "$installscript"
+done
+
 if [ -f "/data/config/auto/startup.sh" ]; then
   pushd ${ROOT}
+  echo "Running startup script"
   . /data/config/auto/startup.sh
   popd
 fi
